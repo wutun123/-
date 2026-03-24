@@ -189,3 +189,46 @@ export function getCommissionStats(params) {
 export function getUserStats(params) {
   return get('/admin/stats/users', params)
 }
+
+// ==================== 图片上传 ====================
+
+/**
+ * 单图上传
+ */
+export function uploadSingle(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return uni.request({
+    url: '/api/v1/upload/single',
+    method: 'post',
+    data: formData,
+    header: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}
+
+/**
+ * 多图上传
+ */
+export function uploadMultiple(files) {
+  const formData = new FormData()
+  files.forEach(file => {
+    formData.append('files', file)
+  })
+  return uni.request({
+    url: '/api/v1/upload/multiple',
+    method: 'post',
+    data: formData,
+    header: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}
+
+/**
+ * Base64 图片上传
+ */
+export function uploadBase64(base64, filename) {
+  return post('/upload/base64', { base64, filename })
+}

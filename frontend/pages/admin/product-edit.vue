@@ -34,33 +34,20 @@
 
       <view class="form-item">
         <text class="form-label">主图 URL <text class="required">*</text></text>
-        <input
-          class="form-input"
+        <image-uploader
           v-model="formData.main_image"
-          placeholder="请输入主图 URL 或点击上传"
+          :maxCount="1"
+          uploadText="上传主图"
         />
-        <view class="upload-box" @click="uploadImage">
-          <image v-if="formData.main_image" :src="formData.main_image" class="preview-image"></image>
-          <view v-else class="upload-placeholder">
-            <uni-icons type="camera" size="40" color="#ccc"></uni-icons>
-            <text class="upload-text">点击上传</text>
-          </view>
-        </view>
       </view>
 
       <view class="form-item">
         <text class="form-label">商品图片</text>
-        <view class="image-list">
-          <view class="image-item" v-for="(img, index) in formData.images" :key="index">
-            <image :src="img" class="image-preview"></image>
-            <view class="image-delete" @click="removeImage(index)">
-              <uni-icons type="close" size="16" color="#fff"></uni-icons>
-            </view>
-          </view>
-          <view class="image-item upload-item" @click="uploadImages">
-            <uni-icons type="plus" size="40" color="#ccc"></uni-icons>
-          </view>
-        </view>
+        <image-uploader
+          v-model="formData.images"
+          :maxCount="9"
+          uploadText="上传图片"
+        />
       </view>
 
       <view class="form-item">
@@ -149,6 +136,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'uni-app/composables'
 import { getCategories } from '@/api/product'
 import { getProductDetail, createProduct, updateProduct } from '@/api/admin'
+import ImageUploader from '@/components/image-uploader.vue'
 
 const route = useRoute()
 const isEdit = computed(() => !!route.query.id)
@@ -214,20 +202,6 @@ const onCategoryChange = (e) => {
   const index = e.detail.value
   selectedCategory.value = categories.value[index]
   formData.value.category_id = categories.value[index].id
-}
-
-const uploadImage = () => {
-  // TODO: 实现图片上传
-  uni.showToast({ title: '图片上传功能待实现', icon: 'none' })
-}
-
-const uploadImages = () => {
-  // TODO: 实现多图上传
-  uni.showToast({ title: '图片上传功能待实现', icon: 'none' })
-}
-
-const removeImage = (index) => {
-  formData.value.images.splice(index, 1)
 }
 
 const addSku = () => {

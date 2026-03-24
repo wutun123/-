@@ -3,6 +3,8 @@ const cors = require('cors')
 const bodyParser = require('koa-bodyparser')
 const dotenv = require('dotenv')
 const logger = require('winston')
+const serve = require('koa-static')
+const path = require('path')
 
 const { sequelize, testConnection } = require('./database')
 const routes = require('./routes')
@@ -28,6 +30,9 @@ app.use(bodyParser({
   formLimit: '1mb',
   jsonLimit: '1mb'
 }))
+
+// 静态文件服务 - 支持图片上传
+app.use(serve(path.join(__dirname, '../uploads')))
 
 // 日志中间件
 app.use(async (ctx, next) => {

@@ -292,10 +292,26 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import {
+  getDashboardStats,
+  getProductList,
+  getOrderList,
+  getDistributorList,
+  getWithdrawalList,
+  getCommissionConfig,
+  saveCommissionConfig,
+  toggleProductStatus,
+  shipOrder,
+  cancelOrder as adminCancelOrder,
+  auditDistributor,
+  auditWithdrawal,
+  deleteProduct
+} from '@/api/admin'
 
 const currentMenu = ref('dashboard')
 const currentStatusIndex = ref(0)
 const currentDistributorStatusIndex = ref(0)
+const loading = ref(false)
 
 const menus = [
   { id: 'dashboard', name: '数据统计', icon: 'home' },
@@ -309,31 +325,41 @@ const menus = [
 const orderStatusOptions = ['全部', '待付款', '待发货', '待收货', '已完成', '已取消', '售后']
 const distributorStatusOptions = ['全部', '待审核', '正式', '已拒绝', '已冻结']
 
+// 统计数据
 const stats = ref({
-  todayOrders: 128,
-  todaySales: 15680,
-  pendingOrders: 36,
-  pendingDistributors: 8,
-  ordersTrend: 12.5,
-  salesTrend: 8.3
+  todayOrders: 0,
+  todaySales: 0,
+  pendingOrders: 0,
+  pendingDistributors: 0,
+  ordersTrend: 0,
+  salesTrend: 0
 })
 
-const productList = ref([
-  { id: 1, name: '天然狗粮 5kg', category: '主粮', price: 128, stock: 500, status: 1 },
-  { id: 2, name: '猫罐头 80g*12 罐', category: '零食', price: 96, stock: 1000, status: 1 },
-  { id: 3, name: '宠物沐浴露 500ml', category: '用品', price: 58, stock: 800, status: 0 }
-])
+// 商品列表
+const productList = ref([])
+const productTotal = ref(0)
+const productPage = ref(1)
+const productPageSize = ref(10)
 
-const orderList = ref([
-  { id: 1, order_no: 'SO202603240001', user_name: '张三', pay_amount: 128, order_status: 1, status_text: '待发货', created_at: '2026-03-24 10:30' },
-  { id: 2, order_no: 'SO202603240002', user_name: '李四', pay_amount: 256, order_status: 0, status_text: '待付款', created_at: '2026-03-24 11:00' }
-])
+// 订单列表
+const orderList = ref([])
+const orderTotal = ref(0)
+const orderPage = ref(1)
+const orderPageSize = ref(10)
 
-const distributorList = ref([
-  { id: 1, nickname: '王五', phone: '138****0001', level_name: '金牌分销商', team_count: 128, total_commission: 5680, status: 1 },
-  { id: 2, nickname: '赵六', phone: '138****0002', level_name: '银牌分销商', team_count: 56, total_commission: 2340, status: 0 }
-])
+// 分销商列表
+const distributorList = ref([])
+const distributorTotal = ref(0)
+const distributorPage = ref(1)
+const distributorPageSize = ref(10)
 
+// 提现列表
+const withdrawalList = ref([])
+const withdrawalTotal = ref(0)
+const withdrawalPage = ref(1)
+const withdrawalPageSize = ref(10)
+
+// 佣金配置
 const commissionForm = ref({
   level1Rate: 15,
   level2Rate: 8,
@@ -342,13 +368,156 @@ const commissionForm = ref({
   autoUpgradeCount: 10
 })
 
-const withdrawalList = ref([
-  { id: 1, distributor_name: '王五', amount: 500, status: 0, apply_time: '2026-03-24 09:00' },
-  { id: 2, distributor_name: '赵六', amount: 200, status: 1, apply_time: '2026-03-23 15:30' }
-])
+// 加载统计数据
+const loadStats = async () => {
+  try {
+    const res = await getDashboardStats()
+    if (res.code === 200) {
+      stats.value = {
+        todayOrders: res.data.today_orders,
+        todaySales: res.data.today_sales,
+        pendingOrders: res.data.pending_orders,
+        pendingDistributors: res.data.pending_distributors,
+        ordersTrend: res.data.orders_trend,
+        salesTrend: res.data.sales_trend
+      }
+    }
+  } catch (error) {
+    console.error('加载统计数据失败:', error)
+  }
+}
 
-const switchMenu = (id) => {
+// 加载商品列表
+const loadProductList = async () => {
+  loading.value = true
+  try {
+    const res = await getProductList({
+      page: productPage.value,
+      pageSize: productPageSize.value
+    })
+    if (res.code === 200) {
+      productList.value = res.data.list
+      productTotal.value = res.data.total
+    }
+  } catch (error) {
+    console.error('加载商品列表失败:', error)
+    uni.showToast({ title: '加载失败', icon: 'none' })
+  } finally {
+    loading.value = false
+  }
+}
+
+// 加载订单列表
+const loadOrderList = async () => {
+  loading.value = true
+  try {
+    const res = await getOrderList({
+      page: orderPage.value,
+      pageSize: orderPageSize.value,
+      order_status: currentStatusIndex.value > 0 ? currentStatusIndex.value - 1 : undefined
+    })
+    if (res.code === 200) {
+      orderList.value = res.data.list
+      orderTotal.value = res.data.total
+    }
+  } catch (error) {
+    console.error('加载订单列表失败:', error)
+    uni.showToast({ title: '加载失败', icon: 'none' })
+  } finally {
+    loading.value = false
+  }
+}
+
+// 加载分销商列表
+const loadDistributorList = async () => {
+  loading.value = true
+  try {
+    const res = await getDistributorList({
+      page: distributorPage.value,
+      pageSize: distributorPageSize.value,
+      status: currentDistributorStatusIndex.value > 0 ? currentDistributorStatusIndex.value - 1 : undefined
+    })
+    if (res.code === 200) {
+      distributorList.value = res.data.list.map(item => ({
+        ...item,
+        nickname: item.user?.nickname || '-',
+        phone: item.user?.phone ? item.user.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : '-',
+        level_name: getLevelName(item.level),
+        status: item.status
+      }))
+      distributorTotal.value = res.data.total
+    }
+  } catch (error) {
+    console.error('加载分销商列表失败:', error)
+    uni.showToast({ title: '加载失败', icon: 'none' })
+  } finally {
+    loading.value = false
+  }
+}
+
+// 加载提现列表
+const loadWithdrawalList = async () => {
+  loading.value = true
+  try {
+    const res = await getWithdrawalList({
+      page: withdrawalPage.value,
+      pageSize: withdrawalPageSize.value
+    })
+    if (res.code === 200) {
+      withdrawalList.value = res.data.list.map(item => ({
+        ...item,
+        distributor_name: item.distributor?.user?.nickname || '-',
+        status: item.status
+      }))
+      withdrawalTotal.value = res.data.total
+    }
+  } catch (error) {
+    console.error('加载提现列表失败:', error)
+    uni.showToast({ title: '加载失败', icon: 'none' })
+  } finally {
+    loading.value = false
+  }
+}
+
+// 加载佣金配置
+const loadCommissionConfig = async () => {
+  try {
+    const res = await getCommissionConfig()
+    if (res.code === 200) {
+      commissionForm.value = {
+        level1Rate: res.data.level1_rate,
+        level2Rate: res.data.level2_rate,
+        minWithdraw: res.data.min_withdraw,
+        autoUpgradeAmount: res.data.auto_upgrade_amount,
+        autoUpgradeCount: res.data.auto_upgrade_count
+      }
+    }
+  } catch (error) {
+    console.error('加载佣金配置失败:', error)
+  }
+}
+
+const getLevelName = (level) => {
+  const names = { 1: '铜牌分销商', 2: '银牌分销商', 3: '金牌分销商' }
+  return names[level] || '未知'
+}
+
+const switchMenu = async (id) => {
   currentMenu.value = id
+  // 切换菜单时加载对应数据
+  if (id === 'dashboard') {
+    loadStats()
+  } else if (id === 'products') {
+    loadProductList()
+  } else if (id === 'orders') {
+    loadOrderList()
+  } else if (id === 'distributors') {
+    loadDistributorList()
+  } else if (id === 'withdrawals') {
+    loadWithdrawalList()
+  } else if (id === 'commission') {
+    loadCommissionConfig()
+  }
 }
 
 const handleLogout = () => {
@@ -372,13 +541,43 @@ const editProduct = (item) => {
   uni.navigateTo({ url: `/pages/admin/product-edit?id=${item.id}` })
 }
 
-const toggleStatus = (item) => {
+const toggleStatus = async (item) => {
   uni.showModal({
     title: '提示',
     content: `确定${item.status === 1 ? '下架' : '上架'}该商品吗？`,
-    success: (res) => {
+    success: async (res) => {
       if (res.confirm) {
-        item.status = item.status === 1 ? 0 : 1
+        try {
+          const newStatus = item.status === 1 ? 0 : 1
+          const result = await toggleProductStatus(item.id, newStatus)
+          if (result.code === 200) {
+            item.status = newStatus
+            uni.showToast({ title: '操作成功', icon: 'success' })
+          }
+        } catch (error) {
+          uni.showToast({ title: '操作失败', icon: 'none' })
+        }
+      }
+    }
+  })
+}
+
+const deleteProductItem = async (item) => {
+  uni.showModal({
+    title: '提示',
+    content: '确定删除该商品吗？删除后无法恢复！',
+    confirmColor: '#F5222D',
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          const result = await deleteProduct(item.id)
+          if (result.code === 200) {
+            uni.showToast({ title: '删除成功', icon: 'success' })
+            loadProductList()
+          }
+        } catch (error) {
+          uni.showToast({ title: '删除失败', icon: 'none' })
+        }
       }
     }
   })
@@ -386,12 +585,12 @@ const toggleStatus = (item) => {
 
 const onOrderStatusChange = (e) => {
   currentStatusIndex.value = e.detail.value
-  // TODO: 加载对应状态的订单
+  loadOrderList()
 }
 
 const onDistributorStatusChange = (e) => {
   currentDistributorStatusIndex.value = e.detail.value
-  // TODO: 加载对应状态的分销商
+  loadDistributorList()
 }
 
 const getStatusClass = (status) => {
@@ -423,17 +622,45 @@ const viewOrderDetail = (item) => {
   uni.navigateTo({ url: `/pages/admin/order-detail?id=${item.id}` })
 }
 
-const shipOrder = (item) => {
-  uni.navigateTo({ url: `/pages/admin/order-ship?id=${item.id}` })
+const shipOrder = async (item) => {
+  uni.showModal({
+    title: '订单发货',
+    editable: true,
+    placeholderText: '请输入物流单号',
+    success: async (res) => {
+      if (res.confirm && res.content) {
+        try {
+          const result = await shipOrder(item.id, {
+            logistics_company: '其他',
+            logistics_no: res.content
+          })
+          if (result.code === 200) {
+            uni.showToast({ title: '发货成功', icon: 'success' })
+            loadOrderList()
+          }
+        } catch (error) {
+          uni.showToast({ title: '发货失败', icon: 'none' })
+        }
+      }
+    }
+  })
 }
 
-const cancelOrder = (item) => {
+const cancelOrder = async (item) => {
   uni.showModal({
     title: '提示',
     content: '确定取消该订单吗？',
-    success: (res) => {
+    success: async (res) => {
       if (res.confirm) {
-        // TODO: 取消订单
+        try {
+          const result = await adminCancelOrder(item.id)
+          if (result.code === 200) {
+            uni.showToast({ title: '取消成功', icon: 'success' })
+            loadOrderList()
+          }
+        } catch (error) {
+          uni.showToast({ title: '取消失败', icon: 'none' })
+        }
       }
     }
   })
@@ -443,33 +670,61 @@ const viewDistributorDetail = (item) => {
   uni.navigateTo({ url: `/pages/admin/distributor-detail?id=${item.id}` })
 }
 
-const auditDistributor = (item, result) => {
+const auditDistributorItem = async (item, result) => {
   uni.showModal({
     title: '提示',
     content: result === 1 ? '确定通过审核吗？' : '确定拒绝审核吗？',
-    success: (res) => {
+    success: async (res) => {
       if (res.confirm) {
-        // TODO: 审核分销商
+        try {
+          const apiResult = await auditDistributor(item.id, { result })
+          if (apiResult.code === 200) {
+            uni.showToast({ title: result === 1 ? '审核通过' : '已拒绝', icon: 'success' })
+            loadDistributorList()
+          }
+        } catch (error) {
+          uni.showToast({ title: '操作失败', icon: 'none' })
+        }
       }
     }
   })
 }
 
-const saveCommissionConfig = () => {
+const saveCommissionConfig = async () => {
   uni.showLoading({ title: '保存中...' })
-  setTimeout(() => {
+  try {
+    const result = await saveCommissionConfig({
+      level1_rate: commissionForm.value.level1Rate,
+      level2_rate: commissionForm.value.level2Rate,
+      min_withdraw: commissionForm.value.minWithdraw,
+      auto_upgrade_amount: commissionForm.value.autoUpgradeAmount,
+      auto_upgrade_count: commissionForm.value.autoUpgradeCount
+    })
+    if (result.code === 200) {
+      uni.showToast({ title: '保存成功', icon: 'success' })
+    }
+  } catch (error) {
+    uni.showToast({ title: '保存失败', icon: 'none' })
+  } finally {
     uni.hideLoading()
-    uni.showToast({ title: '保存成功' })
-  }, 1000)
+  }
 }
 
-const auditWithdrawal = (item, result) => {
+const auditWithdrawalItem = async (item, result) => {
   uni.showModal({
     title: '提示',
     content: result === 1 ? '确定通过提现申请吗？' : '确定驳回提现申请吗？',
-    success: (res) => {
+    success: async (res) => {
       if (res.confirm) {
-        // TODO: 审核提现
+        try {
+          const apiResult = await auditWithdrawal(item.id, { result })
+          if (apiResult.code === 200) {
+            uni.showToast({ title: result === 1 ? '审核通过' : '已驳回', icon: 'success' })
+            loadWithdrawalList()
+          }
+        } catch (error) {
+          uni.showToast({ title: '操作失败', icon: 'none' })
+        }
       }
     }
   })
@@ -478,6 +733,10 @@ const auditWithdrawal = (item, result) => {
 const viewWithdrawalDetail = (item) => {
   uni.navigateTo({ url: `/pages/admin/withdrawal-detail?id=${item.id}` })
 }
+
+onMounted(() => {
+  loadStats()
+})
 </script>
 
 <style lang="scss" scoped>
