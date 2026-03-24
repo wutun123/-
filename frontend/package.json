@@ -1,0 +1,25 @@
+{
+  "name": "pet-universe-frontend",
+  "version": "1.0.0",
+  "description": "宠星球分销商城小程序",
+  "main": "main.js",
+  "scripts": {
+    "dev:mp-weixin": "uni -p mp-weixin",
+    "build:mp-weixin": "uni build -p mp-weixin",
+    "dev:h5": "uni -p h5",
+    "build:h5": "uni build -p h5"
+  },
+  "dependencies": {
+    "vue": "^3.2.47",
+    "pinia": "^2.0.33",
+    "pinia-plugin-persistedstate": "^3.1.0"
+  },
+  "devDependencies": {
+    "@dcloudio/uni-app": "^3.0.0-3070920230703001",
+    "@dcloudio/uni-cli-shared": "^3.0.0-3070920230703001",
+    "@dcloudio/uni-components": "^3.0.0-3070920230703001",
+    "@dcloudio/uni-mp-weixin": "^3.0.0-3070920230703001",
+    "@dcloudio/vite-plugin-uni": "^3.0.0-3070920230703001",
+    "vite": "^4.1.4"
+  }
+}
